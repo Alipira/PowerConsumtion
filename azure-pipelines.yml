@@ -1,0 +1,52 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  name: 'PublishDockerAgentDotNet8'
+
+variables:
+  imageName: mydockerhub/docker-image-name #FIXME:
+
+stages:
+  - stage: Test
+    jobs:
+      - job: RunTests
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.13.1'
+
+          - checkout: self
+
+          - script: |
+              python3 -m venv .venv
+              source .venv/bin/activate
+              pip install  --timeout 120 --upgrade pip
+
+              # Install dependencies
+              pip install  --timeout 120 -r requirements.txt
+
+              # Run tests
+              pytest test/
+            displayName: 'Setup venv, install dependencies, and run tests'
+
+  - stage: BuildAndPush
+    dependsOn: Test
+
+    jobs:
+      - job: Build
+        steps:
+          - checkout: self
+
+          - task: Docker@2
+            displayName: Build and push Docker image
+            inputs:
+              containerRegistry: 'MyReg'
+              repository: '$(imageName)'
+              command: 'buildAndPush'
+              Dockerfile: '**/Dockerfile'
+              tags: |
+                latest
+                $(BuildId)
