@@ -23,7 +23,7 @@ class NtlDetection:
         scores = iso.fit_predict(features)
         return scores
 
-
+    # TODO: complete me
     def deep(self, ):
         pass
 
