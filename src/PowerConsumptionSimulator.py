@@ -177,27 +177,53 @@ class PowerConsumptionSimulator:
         df = pd.DataFrame(data, index=index)
         return df
 
-    def inject_ntl_patterns(self, df: pd.DataFrame, theft_fraction: float = 0.15, reduction_fraction: float = 0.10):
+    def inject_ntl_patterns(self, df: pd.DataFrame, ntl_ratio: float = 0.15):
         """Injects Non-Technical Loss (NTL) patterns into the power consumption data."""
-        n_theft_customers = int(len(df['customer_id'].unique()) * theft_fraction)
-        n_reduction_customers = int(self.n_customers * reduction_fraction)
-
-        theft_customers = np.random.choice(df.columns, size=n_theft_customers, replace=False)
-        remaining_customers = list(set(df.columns) - set(theft_customers))
-        reduction_customers = np.random.choice(remaining_customers, size=n_reduction_customers, replace=False)
+        n_ntl_customers = int(len(df['customer_ids'].unique()) * ntl_ratio)
+        ntl_customers = np.random.choice(
+            df['customer_ids'].unique(),
+            size=n_ntl_customers,
+            replace=False
+        )
+        df_ntl = df.copy(deep=True)
 
         # Inject theft patterns
-        for cust in theft_customers:
-            for day in range(self.n_days):
-                if np.random.rand() < 0.3:  # 30% chance of theft on any given day
-                    start_hour = np.random.randint(0, self._hours_per_day - 4)
-                    df.loc[df.index[day * self._hours_per_day + start_hour: day * self._hours_per_day + start_hour + 4], cust] *= 0.5  # 50% reduction
+        for customer in ntl_customers:
+            mask = df_ntl['customer_ids'] == customer
+            ntl_types = np.random.choice(['theft', 'meter_tampering', 'irregular'])
 
-        # Inject reduction patterns
-        for cust in reduction_customers:
-            for day in range(self.n_days):
-                if np.random.rand() < 0.2:  # 20% chance of reduction on any given day
-                    start_hour = np.random.randint(0, self._hours_per_day - 6)
-                    df.loc[df.index[day * self._hours_per_day + start_hour: day * self._hours_per_day + start_hour + 6], cust] *= 0.7  # 30% reduction
+            if ntl_types == 'theft':
+                # Sudden drop in consumption (direct theft)
+                for day in range(self.n_days):
+                    if np.random.rand() < 0.3:  # 30% chance of theft on any given day
+                        start_hour = np.random.randint(0, self._hours_per_day - 4)
+                        df_ntl.loc[]  # FIXME:
+            elif ntl_types == 'meter_tampering':
+                pass
+            else:
+                pass
 
-        return df
+    # def inject_ntl_patterns(self, df: pd.DataFrame, theft_fraction: float = 0.15, reduction_fraction: float = 0.10):
+    #     """Injects Non-Technical Loss (NTL) patterns into the power consumption data."""
+    #     n_theft_customers = int(len(df['customer_id'].unique()) * theft_fraction)
+    #     n_reduction_customers = int(self.n_customers * reduction_fraction)
+
+    #     theft_customers = np.random.choice(df.columns, size=n_theft_customers, replace=False)
+    #     remaining_customers = list(set(df.columns) - set(theft_customers))
+    #     reduction_customers = np.random.choice(remaining_customers, size=n_reduction_customers, replace=False)
+
+    #     # Inject theft patterns
+    #     for cust in theft_customers:
+    #         for day in range(self.n_days):
+    #             if np.random.rand() < 0.3:  # 30% chance of theft on any given day
+    #                 start_hour = np.random.randint(0, self._hours_per_day - 4)
+    #                 df.loc[df.index[day * self._hours_per_day + start_hour: day * self._hours_per_day + start_hour + 4], cust] *= 0.5  # 50% reduction
+
+    #     # Inject reduction patterns
+    #     for cust in reduction_customers:
+    #         for day in range(self.n_days):
+    #             if np.random.rand() < 0.2:  # 20% chance of reduction on any given day
+    #                 start_hour = np.random.randint(0, self._hours_per_day - 6)
+    #                 df.loc[df.index[day * self._hours_per_day + start_hour: day * self._hours_per_day + start_hour + 6], cust] *= 0.7  # 30% reduction
+
+    #     return df
