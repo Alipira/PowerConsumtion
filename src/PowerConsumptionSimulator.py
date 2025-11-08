@@ -177,7 +177,7 @@ class PowerConsumptionSimulator:
         df = pd.DataFrame(data, index=index)
         return df
 
-    def inject_ntl_patterns(self, df: pd.DataFrame, ntl_ratio: float = 0.15):
+    def inject_ntl_patterns(self, df: pd.DataFrame, ntl_ratio: float = 0.15, reduction_ratio: float = 0.10) -> pd.DataFrame:
         """Injects Non-Technical Loss (NTL) patterns into the power consumption data."""
         n_ntl_customers = int(len(df['customer_ids'].unique()) * ntl_ratio)
         ntl_customers = np.random.choice(
@@ -197,11 +197,21 @@ class PowerConsumptionSimulator:
                 for day in range(self.n_days):
                     if np.random.rand() < 0.3:  # 30% chance of theft on any given day
                         start_hour = np.random.randint(0, self._hours_per_day - 4)
-                        df_ntl.loc[]  # FIXME:
+                        df_ntl.loc[df.index[day * self._hours_per_day + start_hour : day * self._hours_per_day + start_hour + 4], customer] *= 0.5  # 50% reduction
             elif ntl_types == 'meter_tampering':
-                pass
+                # Gradual reduction in reported consumption (meter tampering)
+                for day in range(self.n_days):
+                    if np.random.rand() < 0.2:  # 20% chance of tampering on any given day
+                        start_hour = np.random.randint(0, self._hours_per_day - 6)
+                        df_ntl.loc[df.index[day * self._hours_per_day + start_hour : day * self._hours_per_day + start_hour + 6], customer] *= 0.7  # 30% reduction
             else:
-                pass
+                # Irregular consumption patterns
+                for day in range(self.n_days):
+                    if np.random.rand() < 0.25:  # 25% chance of irregularity on any given day
+                        start_hour = np.random.randint(0, self._hours_per_day - 5)
+                        fluctuation = np.random.choice([0.5, 1.5])  # Either spike or drop
+                        df_ntl.loc[df.index[day * self._hours_per_day + start_hour : day * self._hours_per_day + start_hour + 5], customer] *= fluctuation
+            return df_ntl
 
     # def inject_ntl_patterns(self, df: pd.DataFrame, theft_fraction: float = 0.15, reduction_fraction: float = 0.10):
     #     """Injects Non-Technical Loss (NTL) patterns into the power consumption data."""
