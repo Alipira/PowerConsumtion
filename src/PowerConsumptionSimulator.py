@@ -8,13 +8,6 @@ class PowerConsumptionSimulator:
         self.n_days = n_days
         self._hours_per_day = 24
 
-        # Base load in KwH for different customer types
-        self.base_load = {
-            'residential': 1.5,
-            'commercial': 5.0,
-            'industrial': 20.0
-        }
-
         # Variability factor to simulate different customer consumption patterns during the day/night and seasons
         # hourly: 24 multipliers for hours 0..23 (midnight..23:00)
         # seasonal: multipliers for typical seasons
@@ -145,22 +138,31 @@ class PowerConsumptionSimulator:
             'industrial': (200, 50)
         }
 
-
-    def generate_normal_consumption(self):
+    def generate_normal_consumption(self, customer_type: str | None = 'residential') -> pd.DataFrame:
         """Generates normal power consumption data for all customers over the specified number of days."""
         data = {}
         customer_ids = [f'customer_{i+1}' for i in range(self.n_customers)]
-        customer_types = np.random.choice(list(self.base_load.keys()), size=self.n_customers, p=[0.6, 0.25, 0.15])
+        customer_types = np.random.choice(list(self.cusotmer_types_consumption.keys()), size=self.n_customers, p=[0.6, 0.25, 0.15])
+        #FIXME:
+        # if customer_type is None:
+        #     customer_types = np.random.choice(list(self.cusotmer_types_consumption.keys()), size=self.n_customers, p=[0.6, 0.25, 0.15])
 
         for cust_id, cust_type in zip(customer_ids, customer_types):
             daily_consumption = []
             for day in range(self.n_days):
                 day_of_week = day % 7
                 season = (day // 90) % 4  # 0:winter, 1:spring, 2:summer, 3:autumn
+                if season == 0:
+                    season = 'winter'
+                elif season == 1:
+                    season = 'spring'
+                elif season == 2:
+                    season = 'summer'
+                else:
+                    season = 'autumn'
                 weekday_weekend = 'weekend' if day_of_week in [5, 6] else 'weekday'
 
                 for hour in range(self._hours_per_day):
-                    base = self.base_load[cust_type]
                     hourly_var = self.variability[cust_type]['hourly'][hour]
                     seasonal_var = self.variability[cust_type]['seasonal'][season]
                     ww_var = self.variability[cust_type]['weekday_weekend'][weekday_weekend]
@@ -168,12 +170,13 @@ class PowerConsumptionSimulator:
                     mean_consumption, std_consumption = self.cusotmer_types_consumption[cust_type]
                     consumption = np.random.normal(mean_consumption, std_consumption)
 
-                    adjusted_consumption = consumption + hourly_var * seasonal_var * ww_var * base
-                    daily_consumption.append(max(adjusted_consumption, 0))  # Ensure no negative consumption
+                    noise = np.random.normal(0, 0.05 * consumption)  # 5% noise
+                    adjusted_consumption = consumption * hourly_var * seasonal_var * ww_var
+                    daily_consumption.append(max(adjusted_consumption + noise, 0))  # Ensure no negative consumption
 
             data[cust_id] = daily_consumption
 
-        index = pd.date_range(start='2023-01-01', periods=self.n_days * self._hours_per_day, freq='H')
+        index = pd.date_range(start='2023-01-01', periods=self.n_days * self._hours_per_day, freq='h')
         df = pd.DataFrame(data, index=index)
         return df
 
