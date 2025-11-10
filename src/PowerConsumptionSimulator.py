@@ -216,6 +216,31 @@ class PowerConsumptionSimulator:
                         df_ntl.loc[df.index[day * self._hours_per_day + start_hour : day * self._hours_per_day + start_hour + 5], customer] *= fluctuation
             return df_ntl
 
+
+    # Calculate variable power factor based on load
+    def calculate_power_factor(self, load_kw: float) -> float:
+        """Calculates a variable power factor based on the load in kW."""
+        if load_kw < 10:
+            return 0.85  # Low load
+        elif 10 <= load_kw < 50:
+            return 0.90  # Medium load
+        else:
+            return 0.95  # High load
+
+    # Calculate electrical metrics from active power S, I, Q
+    def calculate_electrical_metrics(self, load_kw: float, voltage_v: float = 220) -> dict:
+        """Calculates electrical metrics such as apparent power (S), current (I), and reactive power (Q)."""
+        power_factor = self.calculate_power_factor(load_kw)
+        apparent_power_s = load_kw / power_factor  # in kVA
+        current_i = (apparent_power_s * 1000) / voltage_v  # in Amperes
+        reactive_power_q = np.sqrt(apparent_power_s**2 - load_kw**2)  # in kVAR
+
+        return {
+            'apparent_power_s_kva': apparent_power_s,
+            'current_i_a': current_i,
+            'reactive_power_q_kvar': reactive_power_q,
+            'power_factor': power_factor
+        }
     # def inject_ntl_patterns(self, df: pd.DataFrame, theft_fraction: float = 0.15, reduction_fraction: float = 0.10):
     #     """Injects Non-Technical Loss (NTL) patterns into the power consumption data."""
     #     n_theft_customers = int(len(df['customer_id'].unique()) * theft_fraction)
