@@ -180,6 +180,7 @@ class PowerConsumptionSimulator:
         df = pd.DataFrame(data, index=index)
         return df
 
+    # FIXME: Need to change the inject method in such a way that it contributes to electrical metrics calculation
     def inject_ntl_patterns(self, df: pd.DataFrame, ntl_ratio: float = 0.15, reduction_ratio: float = 0.10) -> pd.DataFrame:
         """Injects Non-Technical Loss (NTL) patterns into the power consumption data."""
         n_ntl_customers = int(len(df['customer_ids'].unique()) * ntl_ratio)
