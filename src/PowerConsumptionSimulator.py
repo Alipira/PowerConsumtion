@@ -140,7 +140,7 @@ class PowerConsumptionSimulator:
 
     def generate_normal_consumption(self, customer_type: str | None = 'residential') -> pd.DataFrame:
         """Generates normal power consumption data for all customers over the specified number of days."""
-        data = {}
+        data = []
         customer_ids = [f'customer_{i+1}' for i in range(self.n_customers)]
         customer_types = np.random.choice(list(self.cusotmer_types_consumption.keys()), size=self.n_customers, p=[0.6, 0.25, 0.15])
         #FIXME:
@@ -148,7 +148,6 @@ class PowerConsumptionSimulator:
         #     customer_types = np.random.choice(list(self.cusotmer_types_consumption.keys()), size=self.n_customers, p=[0.6, 0.25, 0.15])
 
         for cust_id, cust_type in zip(customer_ids, customer_types):
-            daily_consumption = []
             for day in range(self.n_days):
                 day_of_week = day % 7
                 season = (day // 90) % 4  # 0:winter, 1:spring, 2:summer, 3:autumn
@@ -168,16 +167,23 @@ class PowerConsumptionSimulator:
                     ww_var = self.variability[cust_type]['weekday_weekend'][weekday_weekend]
 
                     mean_consumption, std_consumption = self.cusotmer_types_consumption[cust_type]
-                    consumption = np.random.normal(mean_consumption, std_consumption)
+                    consumption = max(np.random.normal(mean_consumption, std_consumption), 0.1)
 
                     noise = np.random.normal(0, 0.05 * consumption)  # 5% noise
                     adjusted_consumption = consumption * hourly_var * seasonal_var * ww_var
-                    daily_consumption.append(max(adjusted_consumption + noise, 0))  # Ensure no negative consumption
+                    daily_consumption = max(adjusted_consumption + noise, 0)  # Ensure no negative consumption
+                    timestamp = pd.Timestamp(ts_input='2023-01-01') + pd.Timedelta(hours=hour)
+                    data.append(
+                        {
+                            'customer_id': cust_id,
+                            'customerType': cust_type,
+                            'Load': daily_consumption,
+                            'timestamp': timestamp
+                        }
+                    )
 
-            data[cust_id] = daily_consumption
-
-        index = pd.date_range(start='2023-01-01', periods=self.n_days * self._hours_per_day, freq='h')
-        df = pd.DataFrame(data, index=index)
+        df = pd.DataFrame(data)
+        df.set_index('timestamp', inplace=True)
         return df
 
     # FIXME: Need to change the inject method in such a way that it contributes to electrical metrics calculation
