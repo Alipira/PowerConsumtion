@@ -172,57 +172,16 @@ class PowerConsumptionSimulator:
                     noise = np.random.normal(0, 0.05 * consumption)  # 5% noise
                     adjusted_consumption = consumption * hourly_var * seasonal_var * ww_var
                     daily_consumption = max(adjusted_consumption + noise, 0)  # Ensure no negative consumption
-                    timestamp = pd.Timestamp(ts_input='2023-01-01') + pd.Timedelta(hours=hour)
+                    timestamp = np.tile(pd.date_range('2023-01-01', periods=self.n_days * self._hours_per_day, freq='h'), self.n_customers)
                     data.append(
                         {
                             'customer_id': cust_id,
                             'customerType': cust_type,
-                            'Load': daily_consumption,
-                            'timestamp': timestamp
+                            'Load': daily_consumption
                         }
                     )
-
-        df = pd.DataFrame(data)
-        df.set_index('timestamp', inplace=True)
+        df = pd.DataFrame(data, index=timestamp)
         return df
-
-    # FIXME: Need to change the inject method in such a way that it contributes to electrical metrics calculation
-    def inject_ntl_patterns(self, df: pd.DataFrame, ntl_ratio: float = 0.15, reduction_ratio: float = 0.10) -> pd.DataFrame:
-        """Injects Non-Technical Loss (NTL) patterns into the power consumption data."""
-        n_ntl_customers = int(len(df['customer_ids'].unique()) * ntl_ratio)
-        ntl_customers = np.random.choice(
-            df['customer_ids'].unique(),
-            size=n_ntl_customers,
-            replace=False
-        )
-        df_ntl = df.copy(deep=True)
-
-        # Inject theft patterns
-        for customer in ntl_customers:
-            mask = df_ntl['customer_ids'] == customer
-            ntl_types = np.random.choice(['theft', 'meter_tampering', 'irregular'])
-
-            if ntl_types == 'theft':
-                # Sudden drop in consumption (direct theft)
-                for day in range(self.n_days):
-                    if np.random.rand() < 0.3:  # 30% chance of theft on any given day
-                        start_hour = np.random.randint(0, self._hours_per_day - 4)
-                        df_ntl.loc[df.index[day * self._hours_per_day + start_hour : day * self._hours_per_day + start_hour + 4], customer] *= 0.5  # 50% reduction
-            elif ntl_types == 'meter_tampering':
-                # Gradual reduction in reported consumption (meter tampering)
-                for day in range(self.n_days):
-                    if np.random.rand() < 0.2:  # 20% chance of tampering on any given day
-                        start_hour = np.random.randint(0, self._hours_per_day - 6)
-                        df_ntl.loc[df.index[day * self._hours_per_day + start_hour : day * self._hours_per_day + start_hour + 6], customer] *= 0.7  # 30% reduction
-            else:
-                # Irregular consumption patterns
-                for day in range(self.n_days):
-                    if np.random.rand() < 0.25:  # 25% chance of irregularity on any given day
-                        start_hour = np.random.randint(0, self._hours_per_day - 5)
-                        fluctuation = np.random.choice([0.5, 1.5])  # Either spike or drop
-                        df_ntl.loc[df.index[day * self._hours_per_day + start_hour : day * self._hours_per_day + start_hour + 5], customer] *= fluctuation
-            return df_ntl
-
 
     # Calculate variable power factor based on load
     def calculate_power_factor(self, load_kw: float) -> float:
@@ -235,19 +194,19 @@ class PowerConsumptionSimulator:
             return 0.95  # High load
 
     # Calculate electrical metrics from active power S, I, Q
-    def calculate_electrical_metrics(self, load_kw: float, voltage_v: float = 220) -> dict:
-        """Calculates electrical metrics such as apparent power (S), current (I), and reactive power (Q)."""
-        power_factor = self.calculate_power_factor(load_kw)
-        apparent_power_s = load_kw / power_factor  # in kVA
-        current_i = (apparent_power_s * 1000) / voltage_v  # in Amperes
-        reactive_power_q = np.sqrt(apparent_power_s**2 - load_kw**2)  # in kVAR
+    # def calculate_electrical_metrics(self, load_kw: float, voltage_v: float = 220) -> dict:
+    #     """Calculates electrical metrics such as apparent power (S), current (I), and reactive power (Q)."""
+    #     power_factor = self.calculate_power_factor(load_kw)
+    #     apparent_power_s = load_kw / power_factor  # in kVA
+    #     current_i = (apparent_power_s * 1000) / voltage_v  # in Amperes
+    #     reactive_power_q = np.sqrt(apparent_power_s**2 - load_kw**2)  # in kVAR
 
-        return {
-            'apparent_power_s_kva': apparent_power_s,
-            'current_i_a': current_i,
-            'reactive_power_q_kvar': reactive_power_q,
-            'power_factor': power_factor
-        }
+    #     return {
+    #         'apparent_power_s_kva': apparent_power_s,
+    #         'current_i_a': current_i,
+    #         'reactive_power_q_kvar': reactive_power_q,
+    #         'power_factor': power_factor
+    #     }
     # def inject_ntl_patterns(self, df: pd.DataFrame, theft_fraction: float = 0.15, reduction_fraction: float = 0.10):
     #     """Injects Non-Technical Loss (NTL) patterns into the power consumption data."""
     #     n_theft_customers = int(len(df['customer_id'].unique()) * theft_fraction)
@@ -272,3 +231,39 @@ class PowerConsumptionSimulator:
     #                 df.loc[df.index[day * self._hours_per_day + start_hour: day * self._hours_per_day + start_hour + 6], cust] *= 0.7  # 30% reduction
 
     #     return df
+    # FIXME: Need to change the inject method in such a way that it contributes to electrical metrics calculation
+    # def inject_ntl_patterns(self, df: pd.DataFrame, ntl_ratio: float = 0.15, reduction_ratio: float = 0.10) -> pd.DataFrame:
+    #     """Injects Non-Technical Loss (NTL) patterns into the power consumption data."""
+    #     n_ntl_customers = int(len(df['customer_ids'].unique()) * ntl_ratio)
+    #     ntl_customers = np.random.choice(
+    #         df['customer_ids'].unique(),
+    #         size=n_ntl_customers,
+    #         replace=False
+    #     )
+    #     df_ntl = df.copy(deep=True)
+
+    #     # Inject theft patterns
+    #     for customer in ntl_customers:
+    #         mask = df_ntl['customer_ids'] == customer
+    #         ntl_types = np.random.choice(['theft', 'meter_tampering', 'irregular'])
+
+    #         if ntl_types == 'theft':
+    #             # Sudden drop in consumption (direct theft)
+    #             for day in range(self.n_days):
+    #                 if np.random.rand() < 0.3:  # 30% chance of theft on any given day
+    #                     start_hour = np.random.randint(0, self._hours_per_day - 4)
+    #                     df_ntl.loc[df.index[day * self._hours_per_day + start_hour : day * self._hours_per_day + start_hour + 4], customer] *= 0.5  # 50% reduction
+    #         elif ntl_types == 'meter_tampering':
+    #             # Gradual reduction in reported consumption (meter tampering)
+    #             for day in range(self.n_days):
+    #                 if np.random.rand() < 0.2:  # 20% chance of tampering on any given day
+    #                     start_hour = np.random.randint(0, self._hours_per_day - 6)
+    #                     df_ntl.loc[df.index[day * self._hours_per_day + start_hour : day * self._hours_per_day + start_hour + 6], customer] *= 0.7  # 30% reduction
+    #         else:
+    #             # Irregular consumption patterns
+    #             for day in range(self.n_days):
+    #                 if np.random.rand() < 0.25:  # 25% chance of irregularity on any given day
+    #                     start_hour = np.random.randint(0, self._hours_per_day - 5)
+    #                     fluctuation = np.random.choice([0.5, 1.5])  # Either spike or drop
+    #                     df_ntl.loc[df.index[day * self._hours_per_day + start_hour : day * self._hours_per_day + start_hour + 5], customer] *= fluctuation
+    #         return df_ntl
