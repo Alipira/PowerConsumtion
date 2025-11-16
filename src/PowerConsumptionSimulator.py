@@ -184,14 +184,42 @@ class PowerConsumptionSimulator:
         return df
 
     # Calculate variable power factor based on load
-    def calculate_power_factor(self, load_kw: float) -> float:
-        """Calculates a variable power factor based on the load in kW."""
-        if load_kw < 10:
-            return 0.85  # Low load
-        elif 10 <= load_kw < 50:
-            return 0.90  # Medium load
-        else:
-            return 0.95  # High load
+    @staticmethod
+    def _calculate_power_factor(df: pd.DataFrame, base_factor: float) -> pd.DataFrame:
+        """
+        Calculate per-row power factor based on customer's peak consumption.
+
+        Produces:
+        - 'load_ratio'   : consumption_kwh / max(consumption_kwh) per customer (NaN when max <= 0)
+        - 'power_factor' : piecewise function derived from load_ratio; equals base_factor when max <= 0
+        """
+        # Validation
+        if not isinstance(df, pd.DataFrame):
+            raise TypeError("df must be a pandas.DataFrame")
+        for col in ('customer_id', 'consumption_kwh'):
+            if col not in df.columns:
+                raise KeyError(f"required column '{col}' not found in dataframe")
+        if not np.isscalar(base_factor) or not np.isfinite(base_factor):
+            raise ValueError("base_factor must be a finite numeric scalar")
+
+        max_per_customer = df.groupby('customer_id')['consumption_kwh'].transform('max')
+
+        # Compute load ratio only when max > 0 to avoid division-by-zero
+        load_ratio = np.where(max_per_customer > 0, df['consumption_kwh'] / max_per_customer, np.nan)
+
+        # Piecewise formula (keeps your original logic)
+        pf_when_positive = np.where(
+            load_ratio < 0.5,
+            load_ratio - 0.1 * (0.5 - load_ratio),
+            load_ratio + 0.05 * (load_ratio - 0.5)
+        )
+
+        power_factor = np.where(max_per_customer <= 0, base_factor, pf_when_positive)
+
+        df['load_ratio'] = load_ratio
+        df['power_factor'] = power_factor
+
+        return df
 
     # Calculate electrical metrics from active power S, I, Q
     # def calculate_electrical_metrics(self, load_kw: float, voltage_v: float = 220) -> dict:
